@@ -3,6 +3,7 @@ package buildnbt
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 
 	"github.com/Tnze/go-mc/nbt"
 )
@@ -10,13 +11,31 @@ import (
 // ListTag is a helper to force a TAG_List of Ints instead of TAG_Int_Array
 type ListTag []int32
 
-func (l ListTag) MarshalNBT() (byte, interface{}, error) {
-	// 3 is TAG_Int
-	return 9, struct {
-		Type byte
-		Len  int32
-		Data []int32
-	}{3, int32(len(l)), []int32(l)}, nil
+func (l ListTag) TagType() byte {
+	return 9 // TAG_List
+}
+
+func (l ListTag) MarshalNBT(w io.Writer) error {
+	var buf [5]byte
+	buf[0] = 3 // TAG_Int
+	buf[1] = byte(len(l) >> 24)
+	buf[2] = byte(len(l) >> 16)
+	buf[3] = byte(len(l) >> 8)
+	buf[4] = byte(len(l))
+	if _, err := w.Write(buf[:]); err != nil {
+		return err
+	}
+	for _, v := range l {
+		var vBuf [4]byte
+		vBuf[0] = byte(v >> 24)
+		vBuf[1] = byte(v >> 16)
+		vBuf[2] = byte(v >> 8)
+		vBuf[3] = byte(v)
+		if _, err := w.Write(vBuf[:]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type BlockPos struct {

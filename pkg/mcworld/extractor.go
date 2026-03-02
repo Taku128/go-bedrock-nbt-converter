@@ -114,8 +114,7 @@ type chunkPointer struct {
 	subchunks []int
 }
 
-// ConvertMcworld extracts the .mcworld LevelDB and converts a 3D region of chunks to Java NBT.
-func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, error) {
+func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, []int32, int, int, error) {
 	if opts == nil {
 		opts = &ConvertOptions{
 			MinX: -math.MaxInt32, MaxX: math.MaxInt32,
@@ -127,13 +126,13 @@ func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, error) {
 
 	extractedDir, err := extractMcworld(inputPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract zip: %w", err)
+		return nil, nil, 0, 0, fmt.Errorf("failed to extract zip: %w", err)
 	}
 	defer os.RemoveAll(extractedDir)
 
 	dbDir, err := findDbDir(extractedDir)
 	if err != nil {
-		return nil, err
+		return nil, nil, 0, 0, err
 	}
 
 	db, err := leveldb.OpenFile(dbDir, &opt.Options{
@@ -141,7 +140,7 @@ func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, error) {
 		ReadOnly:    true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open leveldb: %w", err)
+		return nil, nil, 0, 0, fmt.Errorf("failed to open leveldb: %w", err)
 	}
 	defer db.Close()
 
@@ -316,7 +315,7 @@ func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, error) {
 	}
 
 	if len(finalBlocks) == 0 {
-		return nil, fmt.Errorf("no blocks found in specified range")
+		return nil, nil, 0, 0, fmt.Errorf("no blocks found in specified range")
 	}
 
 	sizeX := actualMaxX - actualMinX + 1
@@ -331,5 +330,6 @@ func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, error) {
 
 	modBlocks, modPalette := buildnbt.PostProcessBlocks(finalBlocks, finalPalette)
 
-	return buildnbt.BuildStructureNbt([]int32{sizeX, sizeY, sizeZ}, modPalette, modBlocks, 3953)
+	nbtBytes, err := buildnbt.BuildStructureNbt([]int32{sizeX, sizeY, sizeZ}, modPalette, modBlocks, 3953)
+	return nbtBytes, []int32{sizeX, sizeY, sizeZ}, len(finalBlocks), len(finalPalette), err
 }

@@ -14,6 +14,27 @@ import (
 )
 
 func main() {
+	// Reorder os.Args to allow flags after positional arguments (like Node.js CLI)
+	var flags []string
+	var positionals []string
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if strings.HasPrefix(arg, "-") {
+			flags = append(flags, arg)
+			// If it's not a boolean flag, it might have a value
+			if arg != "-v" && arg != "--verbose" && arg != "-verbose" {
+				if i+1 < len(os.Args) && !strings.HasPrefix(os.Args[i+1], "-") {
+					flags = append(flags, os.Args[i+1])
+					i++
+				}
+			}
+		} else {
+			positionals = append(positionals, arg)
+		}
+	}
+	os.Args = append([]string{os.Args[0]}, flags...)
+	os.Args = append(os.Args, positionals...)
+
 	var outPath string
 	var minX, maxX, minY, maxY, minZ, maxZ int
 	var verbose bool
@@ -69,6 +90,8 @@ func main() {
 
 	startTime := time.Now()
 	var nbtData []byte
+	var size []int32
+	var blockCount, paletteCount int
 	var err error
 
 	if ext == ".mcworld" {
@@ -78,9 +101,9 @@ func main() {
 			MinZ: int32(minZ), MaxZ: int32(maxZ),
 			Dimension: 0,
 		}
-		nbtData, err = mcworld.ConvertMcworld(inputPath, opts)
+		nbtData, size, blockCount, paletteCount, err = mcworld.ConvertMcworld(inputPath, opts)
 	} else if ext == ".mcstructure" {
-		nbtData, err = mcstruct.ConvertMcstructure(inputPath)
+		nbtData, size, blockCount, paletteCount, err = mcstruct.ConvertMcstructure(inputPath)
 	} else {
 		fmt.Fprintf(os.Stderr, "Error: Unknown file extension '%s'. Must be .mcworld or .mcstructure.\n", ext)
 		os.Exit(1)
@@ -97,10 +120,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	sizeMb := float64(len(nbtData)) / (1024 * 1024)
+
+	fmt.Printf("\n📦 Converting %s (%s)...\n", filepath.Base(inputPath), strings.TrimPrefix(ext, "."))
+	fmt.Printf("✅ Size: %d×%d×%d\n", size[0], size[1], size[2])
+	fmt.Printf("   Blocks: %d, Palette: %d\n", blockCount, paletteCount)
+	fmt.Printf("💾 Written to %s (%.2f MB)\n", outPath, sizeMb)
+
 	elapsed := time.Since(startTime)
 	if verbose {
-		fmt.Printf("Successfully saved NBT to %s in %s\n", outPath, elapsed)
-	} else {
-		fmt.Printf("Done in %s. Saved to %s.\n", elapsed, outPath)
+		fmt.Printf("⏱️ Conversion finished in %s\n", elapsed)
 	}
 }

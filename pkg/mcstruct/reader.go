@@ -13,16 +13,16 @@ import (
 )
 
 // ConvertMcstructure parses a Bedrock .mcstructure file and outputs a Java .nbt equivalent.
-func ConvertMcstructure(filePath string) ([]byte, error) {
+func ConvertMcstructure(filePath string) ([]byte, []int32, int, int, error) {
 	b, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("readfile: %w", err)
+		return nil, nil, 0, 0, fmt.Errorf("readfile: %w", err)
 	}
 
 	var root map[string]interface{}
 	err = nbt.UnmarshalEncoding(b, &root, nbt.LittleEndian)
 	if err != nil {
-		return nil, fmt.Errorf("nbt parse: %w", err)
+		return nil, nil, 0, 0, fmt.Errorf("nbt parse: %w", err)
 	}
 
 	// Read Size
@@ -38,13 +38,13 @@ func ConvertMcstructure(filePath string) ([]byte, error) {
 		}
 	}
 	if len(size) != 3 {
-		return nil, fmt.Errorf("invalid or missing size tag in mcstructure")
+		return nil, nil, 0, 0, fmt.Errorf("invalid or missing size tag in mcstructure")
 	}
 	sx, sy, sz := size[0], size[1], size[2]
 
 	structureData, ok := root["structure"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("missing structure map")
+		return nil, nil, 0, 0, fmt.Errorf("missing structure map")
 	}
 
 	var blockIndices []int32
@@ -65,16 +65,16 @@ func ConvertMcstructure(filePath string) ([]byte, error) {
 	}
 
 	if len(blockIndices) != int(sx*sy*sz) {
-		return nil, fmt.Errorf("block indices length mismatch (got %d, expected %d)", len(blockIndices), sx*sy*sz)
+		return nil, nil, 0, 0, fmt.Errorf("block indices length mismatch (got %d, expected %d)", len(blockIndices), sx*sy*sz)
 	}
 
 	paletteContainer, ok := structureData["palette"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("missing palette map")
+		return nil, nil, 0, 0, fmt.Errorf("missing palette map")
 	}
 	defaultPalette, ok := paletteContainer["default"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("missing palette.default map")
+		return nil, nil, 0, 0, fmt.Errorf("missing palette.default map")
 	}
 
 	var rawPalette []map[string]interface{}
@@ -159,5 +159,6 @@ func ConvertMcstructure(filePath string) ([]byte, error) {
 	modBlocks, modPalette := buildnbt.PostProcessBlocks(javaBlocks, javaPalette)
 
 	// Build Final Java Structure
-	return buildnbt.BuildStructureNbt(size, modPalette, modBlocks, 3953)
+	nbtBytes, err := buildnbt.BuildStructureNbt(size, modPalette, modBlocks, 3953)
+	return nbtBytes, size, len(modBlocks), len(modPalette), err
 }
