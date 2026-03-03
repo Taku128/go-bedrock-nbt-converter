@@ -208,7 +208,15 @@ func ConvertMcworld(inputPath string, opts *ConvertOptions) ([]byte, []int32, in
 	actualMinX, actualMinY, actualMinZ := int32(math.MaxInt32), int32(math.MaxInt32), int32(math.MaxInt32)
 	actualMaxX, actualMaxY, actualMaxZ := int32(-math.MaxInt32), int32(-math.MaxInt32), int32(-math.MaxInt32)
 
-	for _, c := range chunks {
+	// Collect chunk keys and sort them so NBT generation byte stream is deterministic
+	var chunkKeys []string
+	for k := range chunks {
+		chunkKeys = append(chunkKeys, k)
+	}
+	sort.Strings(chunkKeys)
+
+	for _, ck := range chunkKeys {
+		c := chunks[ck]
 		if c.x < minCX || c.x > maxCX || c.z < minCZ || c.z > maxCZ {
 			continue
 		}
