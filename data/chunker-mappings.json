@@ -2,7 +2,7 @@
   "_meta": {
     "source": "HiveGamesOSS/Chunker",
     "file": "BedrockBlockIdentifierResolver.java",
-    "generated": "2026-06-14T00:48:39.117Z",
+    "generated": "2026-06-21T00:49:36.413Z",
     "description": "Bedrock → Java block name mappings extracted from Chunker source"
   },
   "names": {
